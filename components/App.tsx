@@ -290,7 +290,7 @@ export function App() {
             </div>
             <span
               className="text-xl tracking-tight font-semibold"
-              style={{ fontFamily: "var(--font-serif)", fontStyle: "italic" }}
+              style={{ fontFamily: "var(--font-brand)" }}
             >
               pumpmarket
             </span>
