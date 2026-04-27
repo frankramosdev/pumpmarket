@@ -384,9 +384,6 @@ export function App() {
               </div>
             </div>
             <div className="text-right text-xs text-stone-400 space-y-1">
-              <div>
-                Updated {lastUpdate ? Math.floor((now - lastUpdate) / 1000) : "?"}s ago
-              </div>
               <div className="font-mono text-stone-300">Pyth Network • ~400ms</div>
             </div>
           </div>
@@ -402,34 +399,29 @@ export function App() {
           </div>
         </div>
 
-        {/* Prediction panel — sits next to the chart on md+, immediately after the chart on mobile */}
+        {/* Open positions in sticky side rail */}
         <aside className="md:col-span-1 md:row-span-3 md:row-start-1 md:col-start-3">
           <div className="sticky top-24">
-            <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
-              <div className="flex border-b border-stone-200">
-                <TabButton active={tab === "quick"} onClick={() => setTab("quick")}>
-                  <Clock size={14} /> Quick 60s
-                </TabButton>
-                <TabButton active={tab === "target"} onClick={() => setTab("target")}>
-                  <Target size={14} /> Price target
-                </TabButton>
+            <div className="bg-white border border-stone-200 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+                  <Activity size={16} />
+                  Open positions
+                  <span className="text-xs text-stone-400 font-normal">
+                    ({activePredictions.length})
+                  </span>
+                </h2>
               </div>
-
-              {tab === "quick" ? (
-                <QuickPredictionForm
-                  coin={coin}
-                  price={selectedPrice}
-                  balance={balance}
-                  stake={quickStake}
-                  setStake={setQuickStake}
-                />
+              {activePredictions.length === 0 ? (
+                <div className="text-sm text-stone-400 py-8 text-center border border-dashed border-stone-200 rounded-xl">
+                  No open positions. Place prediction to get started.
+                </div>
               ) : (
-                <TargetPredictionForm
-                  coin={coin}
-                  price={selectedPrice}
-                  balance={balance}
-                  onPlace={placeTargetPrediction}
-                />
+                <div className="space-y-2">
+                  {activePredictions.map((prediction) => (
+                    <PositionRow key={prediction.id} prediction={prediction} prices={prices} now={now} />
+                  ))}
+                </div>
               )}
             </div>
 
@@ -441,28 +433,35 @@ export function App() {
           </div>
         </aside>
 
-        {/* Open positions */}
+        {/* Prediction panel */}
         <div className="md:col-span-2 md:col-start-1 bg-white border border-stone-200 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-              <Activity size={16} />
-              Open positions
-              <span className="text-xs text-stone-400 font-normal">
-                ({activePredictions.length})
-              </span>
-            </h2>
+          <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
+            <div className="flex border-b border-stone-200">
+              <TabButton active={tab === "quick"} onClick={() => setTab("quick")}>
+                <Clock size={14} /> Quick 60s
+              </TabButton>
+              <TabButton active={tab === "target"} onClick={() => setTab("target")}>
+                <Target size={14} /> Price target
+              </TabButton>
+            </div>
+
+            {tab === "quick" ? (
+              <QuickPredictionForm
+                coin={coin}
+                price={selectedPrice}
+                balance={balance}
+                stake={quickStake}
+                setStake={setQuickStake}
+              />
+            ) : (
+              <TargetPredictionForm
+                coin={coin}
+                price={selectedPrice}
+                balance={balance}
+                onPlace={placeTargetPrediction}
+              />
+            )}
           </div>
-          {activePredictions.length === 0 ? (
-            <div className="text-sm text-stone-400 py-8 text-center border border-dashed border-stone-200 rounded-xl">
-              No open positions. Place prediction to get started.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {activePredictions.map((prediction) => (
-                <PositionRow key={prediction.id} prediction={prediction} prices={prices} now={now} />
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Settled history */}
