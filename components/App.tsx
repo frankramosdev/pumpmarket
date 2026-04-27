@@ -23,7 +23,7 @@ const ROUND_SECONDS = 60;
 
 type PriceInfo = { price: number; change24h?: number; updatedAt?: number };
 
-type QuickBet = {
+type QuickPrediction = {
   id: string;
   type: "quick";
   coinId: string;
@@ -34,7 +34,7 @@ type QuickBet = {
   expiresAt: number;
 };
 
-type TargetBet = {
+type TargetPrediction = {
   id: string;
   type: "target";
   coinId: string;
@@ -47,9 +47,9 @@ type TargetBet = {
   expiresAt: number;
 };
 
-type Bet = QuickBet | TargetBet;
+type Prediction = QuickPrediction | TargetPrediction;
 
-type SettledBet = Bet & {
+type SettledPrediction = Prediction & {
   exitPrice: number;
   won: boolean;
   payout: number;
@@ -77,8 +77,8 @@ export function App() {
   const [history, setHistory] = useState<Record<string, { t: number; p: number }[]>>({});
   const [selected, setSelected] = useState<string>("SOL");
   const [balance, setBalance] = useState(STARTING_BALANCE);
-  const [activeBets, setActiveBets] = useState<Bet[]>([]);
-  const [settled, setSettled] = useState<SettledBet[]>([]);
+  const [activePredictions, setActivePredictions] = useState<Prediction[]>([]);
+  const [settledPredictions, setSettledPredictions] = useState<SettledPrediction[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
   const [tab, setTab] = useState<"quick" | "target">("quick");
   const [quickStake, setQuickStake] = useState(100);
@@ -166,69 +166,71 @@ export function App() {
     return () => clearInterval(id);
   }, []);
 
-  // ----- Settle bets whenever prices update -----
+  // ----- Settle predictions whenever prices update -----
   const pricesRef = useRef(prices);
   pricesRef.current = prices;
 
   useEffect(() => {
-    if (!activeBets.length) return;
+    if (!activePredictions.length) return;
 
     const t = Date.now();
-    const stillActive: Bet[] = [];
-    const newlySettled: SettledBet[] = [];
+    const stillActive: Prediction[] = [];
+    const newlySettled: SettledPrediction[] = [];
     let balanceDelta = 0;
 
-    for (const bet of activeBets) {
-      const cur = prices[bet.coinId]?.price;
+    for (const prediction of activePredictions) {
+      const cur = prices[prediction.coinId]?.price;
       if (cur == null) {
-        stillActive.push(bet);
+        stillActive.push(prediction);
         continue;
       }
 
-      if (bet.type === "quick") {
-        if (t >= bet.expiresAt) {
-          const won = bet.direction === "up" ? cur > bet.entryPrice : cur < bet.entryPrice;
-          const payout = won ? bet.stake * 2 : 0;
+      if (prediction.type === "quick") {
+        if (t >= prediction.expiresAt) {
+          const won =
+            prediction.direction === "up" ? cur > prediction.entryPrice : cur < prediction.entryPrice;
+          const payout = won ? prediction.stake * 2 : 0;
           balanceDelta += payout;
-          newlySettled.push({ ...bet, exitPrice: cur, won, payout, settledAt: t });
+          newlySettled.push({ ...prediction, exitPrice: cur, won, payout, settledAt: t });
         } else {
-          stillActive.push(bet);
+          stillActive.push(prediction);
         }
       } else {
-        const hit = bet.direction === "above" ? cur >= bet.target : cur <= bet.target;
+        const hit =
+          prediction.direction === "above" ? cur >= prediction.target : cur <= prediction.target;
         if (hit) {
-          const payout = bet.stake * bet.multiplier;
+          const payout = prediction.stake * prediction.multiplier;
           balanceDelta += payout;
-          newlySettled.push({ ...bet, exitPrice: cur, won: true, payout, settledAt: t });
-        } else if (t >= bet.expiresAt) {
-          newlySettled.push({ ...bet, exitPrice: cur, won: false, payout: 0, settledAt: t });
+          newlySettled.push({ ...prediction, exitPrice: cur, won: true, payout, settledAt: t });
+        } else if (t >= prediction.expiresAt) {
+          newlySettled.push({ ...prediction, exitPrice: cur, won: false, payout: 0, settledAt: t });
         } else {
-          stillActive.push(bet);
+          stillActive.push(prediction);
         }
       }
     }
 
     if (newlySettled.length) {
-      setActiveBets(stillActive);
-      setSettled((s) => [...newlySettled, ...s].slice(0, 50));
+      setActivePredictions(stillActive);
+      setSettledPredictions((s) => [...newlySettled, ...s].slice(0, 50));
       if (balanceDelta) setBalance((b) => b + balanceDelta);
       const last = newlySettled[newlySettled.length - 1];
       const coin = COIN_BY_ID[last.coinId];
       setToast({
         kind: last.won ? "win" : "loss",
         msg: last.won
-          ? `Won ${fmtUSD(last.payout - last.stake)} on ${coin.sym}`
-          : `Lost ${fmtUSD(last.stake)} on ${coin.sym}`,
+          ? `Won ${fmtUSD(last.payout - last.stake)} on ${coin.sym} prediction`
+          : `Lost ${fmtUSD(last.stake)} on ${coin.sym} prediction`,
       });
       setTimeout(() => setToast(null), 3000);
     }
-  }, [prices, activeBets]);
+  }, [prices, activePredictions]);
 
-  // ----- Bet placement -----
-  function placeQuick(direction: "up" | "down", stake: number) {
+  // ----- Prediction placement -----
+  function placeQuickPrediction(direction: "up" | "down", stake: number) {
     const p = prices[selected]?.price;
     if (!p || stake <= 0 || stake > balance) return;
-    const bet: QuickBet = {
+    const prediction: QuickPrediction = {
       id: Math.random().toString(36).slice(2),
       type: "quick",
       coinId: selected,
@@ -239,10 +241,10 @@ export function App() {
       expiresAt: Date.now() + ROUND_SECONDS * 1000,
     };
     setBalance((b) => b - stake);
-    setActiveBets((a) => [...a, bet]);
+    setActivePredictions((a) => [...a, prediction]);
   }
 
-  function placeTarget(opts: {
+  function placeTargetPrediction(opts: {
     direction: "above" | "below";
     target: number;
     minutes: number;
@@ -259,7 +261,7 @@ export function App() {
     const rawMult = 1 + (pctMove / timeFactor) * 2;
     const multiplier = Math.min(50, Math.max(1.2, Number(rawMult.toFixed(2))));
 
-    const bet: TargetBet = {
+    const prediction: TargetPrediction = {
       id: Math.random().toString(36).slice(2),
       type: "target",
       coinId: selected,
@@ -272,7 +274,7 @@ export function App() {
       expiresAt: Date.now() + minutes * 60 * 1000,
     };
     setBalance((b) => b - stake);
-    setActiveBets((a) => [...a, bet]);
+    setActivePredictions((a) => [...a, prediction]);
   }
 
   const coin = COIN_BY_ID[selected];
@@ -395,7 +397,7 @@ export function App() {
               stake={quickStake}
               balance={balance}
               disabled={!selectedPrice}
-              onPlace={placeQuick}
+              onPlace={placeQuickPrediction}
             />
           </div>
         </div>
@@ -414,7 +416,7 @@ export function App() {
               </div>
 
               {tab === "quick" ? (
-                <QuickBetForm
+                <QuickPredictionForm
                   coin={coin}
                   price={selectedPrice}
                   balance={balance}
@@ -422,11 +424,11 @@ export function App() {
                   setStake={setQuickStake}
                 />
               ) : (
-                <TargetBetForm
+                <TargetPredictionForm
                   coin={coin}
                   price={selectedPrice}
                   balance={balance}
-                  onPlace={placeTarget}
+                  onPlace={placeTargetPrediction}
                 />
               )}
             </div>
@@ -446,18 +448,18 @@ export function App() {
               <Activity size={16} />
               Open positions
               <span className="text-xs text-stone-400 font-normal">
-                ({activeBets.length})
+                ({activePredictions.length})
               </span>
             </h2>
           </div>
-          {activeBets.length === 0 ? (
+          {activePredictions.length === 0 ? (
             <div className="text-sm text-stone-400 py-8 text-center border border-dashed border-stone-200 rounded-xl">
-              No open positions. Place a prediction to get started.
+              No open positions. Place prediction to get started.
             </div>
           ) : (
             <div className="space-y-2">
-              {activeBets.map((bet) => (
-                <PositionRow key={bet.id} bet={bet} prices={prices} now={now} />
+              {activePredictions.map((prediction) => (
+                <PositionRow key={prediction.id} prediction={prediction} prices={prices} now={now} />
               ))}
             </div>
           )}
@@ -474,25 +476,25 @@ export function App() {
               <span>
                 Wins:{" "}
                 <b className="text-emerald-600 tabular-nums">
-                  {settled.filter((b) => b.won).length}
+                  {settledPredictions.filter((prediction) => prediction.won).length}
                 </b>
               </span>
               <span>
                 Losses:{" "}
                 <b className="text-rose-600 tabular-nums">
-                  {settled.filter((b) => !b.won).length}
+                  {settledPredictions.filter((prediction) => !prediction.won).length}
                 </b>
               </span>
             </div>
           </div>
-          {settled.length === 0 ? (
+          {settledPredictions.length === 0 ? (
             <div className="text-sm text-stone-400 py-6 text-center">
-              No settled bets yet.
+              No settled predictions yet.
             </div>
           ) : (
             <div className="space-y-1.5 max-h-80 overflow-y-auto">
-              {settled.map((bet) => (
-                <SettledRow key={bet.id} bet={bet} />
+              {settledPredictions.map((prediction) => (
+                <SettledRow key={prediction.id} prediction={prediction} />
               ))}
             </div>
           )}
@@ -544,7 +546,7 @@ function TabButton({
   );
 }
 
-function QuickBetForm({
+function QuickPredictionForm({
   coin,
   price,
   balance,
@@ -642,7 +644,7 @@ function InlineQuickActions({
   );
 }
 
-function TargetBetForm({
+function TargetPredictionForm({
   coin,
   price,
   balance,
@@ -831,32 +833,39 @@ function Row({
 }
 
 function PositionRow({
-  bet,
+  prediction,
   prices,
   now,
 }: {
-  bet: Bet;
+  prediction: Prediction;
   prices: Record<string, PriceInfo>;
   now: number;
 }) {
-  const coin = COIN_BY_ID[bet.coinId];
-  const cur = prices[bet.coinId]?.price;
-  const remaining = Math.max(0, bet.expiresAt - now);
+  const coin = COIN_BY_ID[prediction.coinId];
+  const cur = prices[prediction.coinId]?.price;
+  const remaining = Math.max(0, prediction.expiresAt - now);
   const secs = Math.ceil(remaining / 1000);
 
   let winning = false;
   let subtitle = "";
 
-  if (bet.type === "quick") {
-    winning = cur != null && (bet.direction === "up" ? cur > bet.entryPrice : cur < bet.entryPrice);
-    subtitle = `${bet.direction.toUpperCase()} from ${fmtUSD(bet.entryPrice)} → now ${fmtUSD(cur)}`;
+  if (prediction.type === "quick") {
+    winning =
+      cur != null &&
+      (prediction.direction === "up" ? cur > prediction.entryPrice : cur < prediction.entryPrice);
+    subtitle = `${prediction.direction.toUpperCase()} from ${fmtUSD(prediction.entryPrice)} → now ${fmtUSD(cur)}`;
   } else {
-    const dist = cur != null ? (bet.direction === "above" ? bet.target - cur : cur - bet.target) : Infinity;
+    const dist =
+      cur != null
+        ? prediction.direction === "above"
+          ? prediction.target - cur
+          : cur - prediction.target
+        : Infinity;
     winning = dist <= 0;
-    subtitle = `Target ${bet.direction} ${fmtUSD(bet.target)} • now ${fmtUSD(cur)}`;
+    subtitle = `Target ${prediction.direction} ${fmtUSD(prediction.target)} • now ${fmtUSD(cur)}`;
   }
 
-  const duration = bet.expiresAt - bet.createdAt;
+  const duration = prediction.expiresAt - prediction.createdAt;
   const progress = duration > 0 ? 1 - remaining / duration : 0;
 
   return (
@@ -872,18 +881,18 @@ function PositionRow({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm">{coin.sym}</span>
             <span className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">
-              {bet.type === "quick" ? "60s" : "Target"}
+              {prediction.type === "quick" ? "60s" : "Target"}
             </span>
-            {bet.type === "target" && (
+            {prediction.type === "target" && (
               <span className="text-[10px] tabular-nums text-stone-500">
-                {bet.multiplier.toFixed(2)}×
+                {prediction.multiplier.toFixed(2)}×
               </span>
             )}
           </div>
           <div className="text-xs text-stone-500 mt-0.5 tabular-nums">{subtitle}</div>
         </div>
         <div className="text-right">
-          <div className="text-sm font-semibold tabular-nums">{fmtUSD(bet.stake)}</div>
+          <div className="text-sm font-semibold tabular-nums">{fmtUSD(prediction.stake)}</div>
           <div
             className={`text-[11px] tabular-nums ${
               winning ? "text-emerald-600" : "text-rose-600"
@@ -897,30 +906,30 @@ function PositionRow({
   );
 }
 
-function SettledRow({ bet }: { bet: SettledBet }) {
-  const coin = COIN_BY_ID[bet.coinId];
+function SettledRow({ prediction }: { prediction: SettledPrediction }) {
+  const coin = COIN_BY_ID[prediction.coinId];
   return (
     <div className="flex items-center justify-between py-2 border-b border-stone-100 last:border-b-0 text-sm">
       <div className="flex items-center gap-2.5 min-w-0">
         <span
           className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-            bet.won ? "bg-emerald-500" : "bg-rose-400"
+            prediction.won ? "bg-emerald-500" : "bg-rose-400"
           }`}
         />
         <span className="font-medium flex-shrink-0">{coin.sym}</span>
         <span className="text-xs text-stone-500 truncate">
-          {bet.type === "quick"
-            ? `${bet.direction.toUpperCase()} • ${fmtUSD(bet.entryPrice)} → ${fmtUSD(bet.exitPrice)}`
-            : `${bet.direction} ${fmtUSD(bet.target)} • ended ${fmtUSD(bet.exitPrice)}`}
+          {prediction.type === "quick"
+            ? `${prediction.direction.toUpperCase()} • ${fmtUSD(prediction.entryPrice)} → ${fmtUSD(prediction.exitPrice)}`
+            : `${prediction.direction} ${fmtUSD(prediction.target)} • ended ${fmtUSD(prediction.exitPrice)}`}
         </span>
       </div>
       <div
         className={`tabular-nums font-semibold text-sm flex-shrink-0 ml-3 ${
-          bet.won ? "text-emerald-600" : "text-stone-400"
+          prediction.won ? "text-emerald-600" : "text-stone-400"
         }`}
       >
-        {bet.won ? "+" : "−"}
-        {fmtUSD(bet.won ? bet.payout - bet.stake : bet.stake)}
+        {prediction.won ? "+" : "−"}
+        {fmtUSD(prediction.won ? prediction.payout - prediction.stake : prediction.stake)}
       </div>
     </div>
   );
