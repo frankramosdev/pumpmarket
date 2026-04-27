@@ -18,6 +18,7 @@ import { COINS, COIN_BY_ID, type Coin, type PriceTick } from "@/lib/coins";
 
 const STARTING_BALANCE = 10_000;
 const ROUND_SECONDS = 60;
+const SPARKLINE_WINDOW_MS = 15 * 1000;
 
 // ---------- Types ----------
 
@@ -81,7 +82,7 @@ export function App() {
   const [settledPredictions, setSettledPredictions] = useState<SettledPrediction[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
   const [tab, setTab] = useState<"quick" | "target">("quick");
-  const [quickStake, setQuickStake] = useState(100);
+  const [quickStake, setQuickStake] = useState(1);
   const [connected, setConnected] = useState(false);
   const [now, setNow] = useState(Date.now());
 
@@ -113,8 +114,9 @@ export function App() {
           setHistory((prev) => {
             const arr = prev[tick.coin] ? [...prev[tick.coin]] : [];
             arr.push({ t, p: tick.price });
-            if (arr.length > 240) arr.shift();
-            return { ...prev, [tick.coin]: arr };
+            const cutoff = t - SPARKLINE_WINDOW_MS;
+            const recent = arr.filter((point) => point.t >= cutoff);
+            return { ...prev, [tick.coin]: recent };
           });
         }
       } catch {
@@ -356,13 +358,16 @@ export function App() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <main className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-[minmax(0,1fr)_minmax(240px,320px)] gap-6">
         {/* Chart */}
-        <div className="md:col-span-2 bg-white border border-stone-200 rounded-2xl p-4 sm:p-6">
+        <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-6 min-h-[392px]">
           <div className="flex items-start justify-between mb-6">
             <div>
               <div className="flex items-center gap-3">
-                <span className="text-4xl" style={{ fontFamily: "var(--font-serif)" }}>
+                <span
+                  className="text-4xl"
+                  style={{ fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, sans-serif" }}
+                >
                   {coin.name}
                 </span>
                 <span className="text-xs uppercase tracking-[0.2em] text-stone-400 mt-2">
@@ -388,7 +393,7 @@ export function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2 sm:gap-3 items-stretch">
+          <div className="grid grid-cols-[minmax(0,1fr)_108px] gap-2 sm:gap-3 items-stretch">
             <Sparkline points={history[selected] ?? []} />
             <InlineQuickActions
               stake={quickStake}
@@ -400,9 +405,9 @@ export function App() {
         </div>
 
         {/* Open positions in sticky side rail */}
-        <aside className="md:col-span-1 md:row-span-3 md:row-start-1 md:col-start-3">
+        <aside className="row-span-3">
           <div className="sticky top-24">
-            <div className="bg-white border border-stone-200 rounded-2xl p-6">
+            <div className="bg-white border border-stone-200 rounded-2xl p-6 min-h-[392px] flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
                   <Activity size={16} />
@@ -413,7 +418,7 @@ export function App() {
                 </h2>
               </div>
               {activePredictions.length === 0 ? (
-                <div className="text-sm text-stone-400 py-8 text-center border border-dashed border-stone-200 rounded-xl">
+                <div className="text-sm text-stone-400 text-center border border-dashed border-stone-200 rounded-xl flex-1 flex items-center justify-center">
                   No open positions. Place prediction to get started.
                 </div>
               ) : (
@@ -434,7 +439,7 @@ export function App() {
         </aside>
 
         {/* Prediction panel */}
-        <div className="md:col-span-2 md:col-start-1 bg-white border border-stone-200 rounded-2xl p-6">
+        <div className="col-span-2 bg-white border border-stone-200 rounded-2xl p-6">
           <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
             <div className="flex border-b border-stone-200">
               <TabButton active={tab === "quick"} onClick={() => setTab("quick")}>
@@ -465,7 +470,7 @@ export function App() {
         </div>
 
         {/* Settled history */}
-        <div className="md:col-span-2 md:col-start-1 bg-white border border-stone-200 rounded-2xl p-6">
+        <div className="col-span-2 bg-white border border-stone-200 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
               <Trophy size={16} />
@@ -575,8 +580,8 @@ function QuickPredictionForm({
       <div>
         <div className="text-[11px] uppercase tracking-widest text-stone-400 mb-2">Stake</div>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">
-            $
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs font-medium">
+            USDC
           </span>
           <input
             type="number"
@@ -584,7 +589,7 @@ function QuickPredictionForm({
             min={1}
             max={balance}
             onChange={(e) => setStake(Number(e.target.value))}
-            className="w-full pl-7 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm tabular-nums font-medium focus:outline-none focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
+            className="w-full pl-14 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm tabular-nums font-medium focus:outline-none focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
           />
         </div>
         <div className="flex gap-1.5 mt-2">
@@ -594,7 +599,7 @@ function QuickPredictionForm({
               onClick={() => setStake(Math.min(v, balance))}
               className="flex-1 text-xs py-1.5 rounded-md border border-stone-200 hover:border-stone-400 hover:bg-stone-50 tabular-nums text-stone-600"
             >
-              ${v}
+              {v} USDC
             </button>
           ))}
         </div>
@@ -662,7 +667,7 @@ function TargetPredictionForm({
   const [direction, setDirection] = useState<"above" | "below">("above");
   const [targetStr, setTargetStr] = useState("");
   const [minutes, setMinutes] = useState(5);
-  const [stake, setStake] = useState(100);
+  const [stake, setStake] = useState(1);
 
   useEffect(() => {
     if (price) {
@@ -767,8 +772,8 @@ function TargetPredictionForm({
       <div>
         <div className="text-[11px] uppercase tracking-widest text-stone-400 mb-2">Stake</div>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">
-            $
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs font-medium">
+            USDC
           </span>
           <input
             type="number"
@@ -776,7 +781,7 @@ function TargetPredictionForm({
             min={1}
             max={balance}
             onChange={(e) => setStake(Number(e.target.value))}
-            className="w-full pl-7 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm tabular-nums font-medium focus:outline-none focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
+            className="w-full pl-14 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm tabular-nums font-medium focus:outline-none focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
           />
         </div>
       </div>
@@ -935,7 +940,10 @@ function SettledRow({ prediction }: { prediction: SettledPrediction }) {
 }
 
 function Sparkline({ points }: { points: { t: number; p: number }[] }) {
-  if (!points || points.length < 2) {
+  const lastTs = points[points.length - 1]?.t ?? 0;
+  const visiblePoints = points.filter((point) => point.t >= lastTs - SPARKLINE_WINDOW_MS);
+
+  if (!visiblePoints || visiblePoints.length < 2) {
     return (
       <div className="h-48 flex items-center justify-center text-sm text-stone-400">
         Gathering price data…
@@ -944,19 +952,27 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
   }
 
   const w = 800;
-  const h = 180;
-  const leftPad = 62;
+  const h = 260;
+  const leftPad = 74;
   const rightPad = 12;
-  const topPad = 12;
-  const bottomPad = 26;
+  const topPad = 18;
+  const bottomPad = 34;
 
-  const ps = points.map((p) => p.p);
-  const min = Math.min(...ps);
-  const max = Math.max(...ps);
-  const range = max - min || 1;
+  const ps = visiblePoints.map((p) => p.p);
+  const rawMin = Math.min(...ps);
+  const rawMax = Math.max(...ps);
+  const rawRange = rawMax - rawMin;
+  const midpoint = (rawMin + rawMax) / 2;
+  // Keep a readable y-scale for tiny moves while avoiding extreme zoom.
+  const minRange = Math.max(midpoint * 0.0002, 0.01);
+  const paddedRange = Math.max(rawRange, minRange);
+  const yPad = paddedRange * 0.12;
+  const min = rawMin - yPad;
+  const max = rawMax + yPad;
+  const range = max - min;
 
-  const xStep = (w - leftPad - rightPad) / (points.length - 1);
-  const coords = points.map((pt, i) => {
+  const xStep = (w - leftPad - rightPad) / (visiblePoints.length - 1);
+  const coords = visiblePoints.map((pt, i) => {
     const x = leftPad + i * xStep;
     const y = topPad + (1 - (pt.p - min) / range) * (h - topPad - bottomPad);
     return [x, y] as const;
@@ -964,7 +980,7 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
   const path = coords.map(([x, y], i) => (i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`)).join(" ");
   const area = `${path} L ${coords[coords.length - 1][0]} ${h - bottomPad} L ${coords[0][0]} ${h - bottomPad} Z`;
 
-  const rising = points[points.length - 1].p >= points[0].p;
+  const rising = visiblePoints[visiblePoints.length - 1].p >= visiblePoints[0].p;
   const stroke = rising ? "#059669" : "#e11d48";
   const fill = rising ? "#059669" : "#e11d48";
   const gridFractions = [0, 0.25, 0.5, 0.75, 1];
@@ -973,10 +989,10 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
     const price = max - f * range;
     return { y, label: fmtUSD(price) };
   });
-  const firstTs = points[0].t;
-  const lastTs = points[points.length - 1].t;
-  const timeSpan = Math.max(1, lastTs - firstTs);
-  const timeFractions = [0, 0.25, 0.5, 0.75, 1];
+  const firstTs = visiblePoints[0].t;
+  const lastTsVisible = visiblePoints[visiblePoints.length - 1].t;
+  const timeSpan = Math.max(1, lastTsVisible - firstTs);
+  const timeFractions = [0, 0.5, 1];
   const timeTicks = timeFractions.map((f, idx) => ({
     x: leftPad + f * (w - leftPad - rightPad),
     label: new Date(firstTs + f * timeSpan).toLocaleTimeString([], {
@@ -989,7 +1005,7 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-64">
         <defs>
           <linearGradient id="area-grad" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor={fill} stopOpacity="0.15" />
@@ -1024,7 +1040,7 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
             x={leftPad - 8}
             y={tick.y + 3}
             textAnchor="end"
-            fontSize="10"
+            fontSize="13"
             fill="#a8a29e"
             className="tabular-nums"
           >
@@ -1062,7 +1078,7 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
             x={tick.x}
             y={h - 6}
             textAnchor={tick.anchor as "start" | "middle" | "end"}
-            fontSize="10"
+            fontSize="12"
             fill="#a8a29e"
             className="tabular-nums"
           >
@@ -1070,8 +1086,8 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
           </text>
         ))}
       </svg>
-      <div className="absolute top-1 right-2 text-[10px] text-stone-400 tabular-nums">
-        hi {fmtUSD(max)} · lo {fmtUSD(min)}
+      <div className="absolute top-1 right-2 text-xs text-stone-400 tabular-nums">
+        high {fmtUSD(max)} · low {fmtUSD(min)}
       </div>
     </div>
   );
