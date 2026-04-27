@@ -5,6 +5,7 @@
 :root {
   --font-sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-brand: "Open Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 html, body {
