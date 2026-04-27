@@ -81,6 +81,7 @@ export function App() {
   const [settled, setSettled] = useState<SettledBet[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
   const [tab, setTab] = useState<"quick" | "target">("quick");
+  const [quickStake, setQuickStake] = useState(100);
   const [connected, setConnected] = useState(false);
   const [now, setNow] = useState(Date.now());
 
@@ -355,7 +356,7 @@ export function App() {
 
       <main className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Chart */}
-        <div className="md:col-span-2 bg-white border border-stone-200 rounded-2xl p-6">
+        <div className="md:col-span-2 bg-white border border-stone-200 rounded-2xl p-4 sm:p-6">
           <div className="flex items-start justify-between mb-6">
             <div>
               <div className="flex items-center gap-3">
@@ -388,7 +389,15 @@ export function App() {
             </div>
           </div>
 
-          <Sparkline points={history[selected] ?? []} />
+          <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2 sm:gap-3 items-stretch">
+            <Sparkline points={history[selected] ?? []} />
+            <InlineQuickActions
+              stake={quickStake}
+              balance={balance}
+              disabled={!selectedPrice}
+              onPlace={placeQuick}
+            />
+          </div>
         </div>
 
         {/* Prediction panel — sits next to the chart on md+, immediately after the chart on mobile */}
@@ -409,7 +418,8 @@ export function App() {
                   coin={coin}
                   price={selectedPrice}
                   balance={balance}
-                  onPlace={placeQuick}
+                  stake={quickStake}
+                  setStake={setQuickStake}
                 />
               ) : (
                 <TargetBetForm
@@ -538,14 +548,15 @@ function QuickBetForm({
   coin,
   price,
   balance,
-  onPlace,
+  stake,
+  setStake,
 }: {
   coin: Coin;
   price: number | undefined;
   balance: number;
-  onPlace: (direction: "up" | "down", stake: number) => void;
+  stake: number;
+  setStake: (stake: number) => void;
 }) {
-  const [stake, setStake] = useState(100);
   const chips = [25, 100, 500, 1000];
 
   return (
@@ -588,30 +599,45 @@ function QuickBetForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 pt-2">
-        <button
-          onClick={() => onPlace("up", stake)}
-          disabled={!price || stake <= 0 || stake > balance}
-          className="group relative py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-stone-200 disabled:cursor-not-allowed text-white font-semibold flex flex-col items-center transition-colors"
-        >
-          <TrendingUp size={18} />
-          <span className="text-sm mt-0.5">UP</span>
-          <span className="text-[10px] opacity-80 mt-0.5">2.00×</span>
-        </button>
-        <button
-          onClick={() => onPlace("down", stake)}
-          disabled={!price || stake <= 0 || stake > balance}
-          className="group relative py-3 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:bg-stone-200 disabled:cursor-not-allowed text-white font-semibold flex flex-col items-center transition-colors"
-        >
-          <TrendingDown size={18} />
-          <span className="text-sm mt-0.5">DOWN</span>
-          <span className="text-[10px] opacity-80 mt-0.5">2.00×</span>
-        </button>
-      </div>
-
       <div className="text-[11px] text-stone-400 text-center">
-        Correct prediction doubles your stake
+        Use the chart-side UP/DOWN buttons to place this stake instantly.
       </div>
+    </div>
+  );
+}
+
+function InlineQuickActions({
+  stake,
+  balance,
+  disabled,
+  onPlace,
+}: {
+  stake: number;
+  balance: number;
+  disabled: boolean;
+  onPlace: (direction: "up" | "down", stake: number) => void;
+}) {
+  const isDisabled = disabled || stake <= 0 || stake > balance;
+  return (
+    <div className="sticky top-20 self-start rounded-xl border border-stone-200 p-1.5 bg-stone-50 flex flex-col gap-1.5 justify-between">
+      <button
+        onClick={() => onPlace("up", stake)}
+        disabled={isDisabled}
+        className="group relative py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:bg-stone-200 disabled:cursor-not-allowed text-white font-semibold flex flex-col items-center transition-colors"
+      >
+        <TrendingUp size={16} />
+        <span className="text-xs mt-0.5">UP</span>
+        <span className="text-[10px] opacity-80">2.00×</span>
+      </button>
+      <button
+        onClick={() => onPlace("down", stake)}
+        disabled={isDisabled}
+        className="group relative py-2.5 rounded-lg bg-rose-500 hover:bg-rose-600 disabled:bg-stone-200 disabled:cursor-not-allowed text-white font-semibold flex flex-col items-center transition-colors"
+      >
+        <TrendingDown size={16} />
+        <span className="text-xs mt-0.5">DOWN</span>
+        <span className="text-[10px] opacity-80">2.00×</span>
+      </button>
     </div>
   );
 }
