@@ -75,7 +75,7 @@ const fmtPct = (n: number) => (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
 export function App() {
   const [prices, setPrices] = useState<Record<string, PriceInfo>>({});
   const [history, setHistory] = useState<Record<string, { t: number; p: number }[]>>({});
-  const [selected, setSelected] = useState<string>("BTC");
+  const [selected, setSelected] = useState<string>("SOL");
   const [balance, setBalance] = useState(STARTING_BALANCE);
   const [activeBets, setActiveBets] = useState<Bet[]>([]);
   const [settled, setSettled] = useState<SettledBet[]>([]);
