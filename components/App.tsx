@@ -946,25 +946,47 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
 
   const w = 800;
   const h = 180;
-  const pad = 8;
+  const leftPad = 62;
+  const rightPad = 12;
+  const topPad = 12;
+  const bottomPad = 26;
 
   const ps = points.map((p) => p.p);
   const min = Math.min(...ps);
   const max = Math.max(...ps);
   const range = max - min || 1;
 
-  const xStep = (w - pad * 2) / (points.length - 1);
+  const xStep = (w - leftPad - rightPad) / (points.length - 1);
   const coords = points.map((pt, i) => {
-    const x = pad + i * xStep;
-    const y = pad + (1 - (pt.p - min) / range) * (h - pad * 2);
+    const x = leftPad + i * xStep;
+    const y = topPad + (1 - (pt.p - min) / range) * (h - topPad - bottomPad);
     return [x, y] as const;
   });
   const path = coords.map(([x, y], i) => (i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`)).join(" ");
-  const area = `${path} L ${coords[coords.length - 1][0]} ${h - pad} L ${coords[0][0]} ${h - pad} Z`;
+  const area = `${path} L ${coords[coords.length - 1][0]} ${h - bottomPad} L ${coords[0][0]} ${h - bottomPad} Z`;
 
   const rising = points[points.length - 1].p >= points[0].p;
   const stroke = rising ? "#059669" : "#e11d48";
   const fill = rising ? "#059669" : "#e11d48";
+  const gridFractions = [0, 0.25, 0.5, 0.75, 1];
+  const priceTicks = gridFractions.map((f) => {
+    const y = topPad + f * (h - topPad - bottomPad);
+    const price = max - f * range;
+    return { y, label: fmtUSD(price) };
+  });
+  const firstTs = points[0].t;
+  const lastTs = points[points.length - 1].t;
+  const timeSpan = Math.max(1, lastTs - firstTs);
+  const timeFractions = [0, 0.25, 0.5, 0.75, 1];
+  const timeTicks = timeFractions.map((f, idx) => ({
+    x: leftPad + f * (w - leftPad - rightPad),
+    label: new Date(firstTs + f * timeSpan).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }),
+    anchor: idx === 0 ? "start" : idx === timeFractions.length - 1 ? "end" : "middle",
+  }));
 
   return (
     <div className="relative">
@@ -975,16 +997,40 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
             <stop offset="100%" stopColor={fill} stopOpacity="0" />
           </linearGradient>
         </defs>
-        {[0.25, 0.5, 0.75].map((f) => (
+        {priceTicks.map((tick) => (
           <line
-            key={f}
-            x1={pad}
-            x2={w - pad}
-            y1={pad + f * (h - pad * 2)}
-            y2={pad + f * (h - pad * 2)}
+            key={tick.y}
+            x1={leftPad}
+            x2={w - rightPad}
+            y1={tick.y}
+            y2={tick.y}
             stroke="#f5f5f4"
             strokeWidth="1"
           />
+        ))}
+        {timeTicks.map((tick) => (
+          <line
+            key={`time-grid-${tick.x}`}
+            x1={tick.x}
+            x2={tick.x}
+            y1={topPad}
+            y2={h - bottomPad}
+            stroke="#f5f5f4"
+            strokeWidth="1"
+          />
+        ))}
+        {priceTicks.map((tick) => (
+          <text
+            key={`label-${tick.y}`}
+            x={leftPad - 8}
+            y={tick.y + 3}
+            textAnchor="end"
+            fontSize="10"
+            fill="#a8a29e"
+            className="tabular-nums"
+          >
+            {tick.label}
+          </text>
         ))}
         <path d={area} fill="url(#area-grad)" />
         <path
@@ -1011,6 +1057,19 @@ function Sparkline({ points }: { points: { t: number; p: number }[] }) {
           <animate attributeName="r" from="4" to="12" dur="1.5s" repeatCount="indefinite" />
           <animate attributeName="opacity" from="0.4" to="0" dur="1.5s" repeatCount="indefinite" />
         </circle>
+        {timeTicks.map((tick) => (
+          <text
+            key={`time-${tick.x}`}
+            x={tick.x}
+            y={h - 6}
+            textAnchor={tick.anchor as "start" | "middle" | "end"}
+            fontSize="10"
+            fill="#a8a29e"
+            className="tabular-nums"
+          >
+            {tick.label}
+          </text>
+        ))}
       </svg>
       <div className="absolute top-1 right-2 text-[10px] text-stone-400 tabular-nums">
         hi {fmtUSD(max)} · lo {fmtUSD(min)}
