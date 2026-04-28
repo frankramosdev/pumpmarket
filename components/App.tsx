@@ -6,7 +6,7 @@ import {
   TrendingDown,
   Clock,
   Target,
-  Zap,
+  Syringe,
   Trophy,
   X,
   Check,
@@ -291,7 +291,7 @@ export function App() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-stone-900 flex items-center justify-center">
-              <Zap size={15} className="text-emerald-400" strokeWidth={2.5} />
+              <Syringe size={15} className="text-emerald-400" strokeWidth={2.5} />
             </div>
             <span
               className="text-xl tracking-tight font-semibold"
